@@ -22,6 +22,11 @@
     
     #game-canvas {
       display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       touch-action: none;
     }
     
@@ -185,6 +190,23 @@
       text-decoration: none;
     }
     
+    #controls-hint {
+      position: absolute;
+      bottom: 30px;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      font-size: 11px;
+      color: rgba(0, 255, 255, 0.4);
+      letter-spacing: 3px;
+      pointer-events: none;
+      animation: fadeHint 4s ease 3s forwards;
+    }
+    @keyframes fadeHint {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+
     #damage-flash {
       position: fixed;
       top: 0;
@@ -215,6 +237,7 @@
   <canvas id="game-canvas"></canvas>
   
   <div id="ui">
+    <div id="controls-hint">◀ TAP LEFT &nbsp;|&nbsp; TAP RIGHT ▶</div>
     <div id="score-display">
       <div>DISTANCE</div>
       <div id="score">0</div>
@@ -537,30 +560,18 @@
       }, 100);
     }
 
-    // Input handling
-    let pointerDown = false;
-    let pointerStartX = 0;
+    // Input handling — tap zones: left third / center / right third of screen
     let laneWidth = 3;
 
-    function getPointerX(e) {
+    function getLanFromPointer(e) {
       const rect = canvas.getBoundingClientRect();
-      return ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      const nx = (e.clientX - rect.left) / rect.width; // 0..1
+      if (nx < 0.33) return -laneWidth;
+      if (nx > 0.67) return laneWidth;
+      return 0;
     }
 
-    // Start screen tap — overlay sits on top of canvas so needs its own listener
-    document.getElementById('start-screen').addEventListener('pointerdown', (e) => {
-      if (gameState === 'start') {
-        initAudio().then(() => {
-          gameState = 'playing';
-          document.getElementById('start-screen').classList.add('hidden');
-        });
-      }
-    });
-
-    canvas.addEventListener('pointerdown', (e) => {
-      pointerDown = true;
-      pointerStartX = getPointerX(e);
-      
+    function handleTap(e) {
       if (gameState === 'start') {
         initAudio().then(() => {
           gameState = 'playing';
@@ -568,19 +579,21 @@
         });
       } else if (gameState === 'gameover') {
         restartGame();
+      } else if (gameState === 'playing') {
+        playerTargetX = getLanFromPointer(e);
       }
-    });
+    }
 
+    // Start screen overlay needs its own listener (sits on top of canvas)
+    document.getElementById('start-screen').addEventListener('pointerdown', handleTap);
+
+    canvas.addEventListener('pointerdown', handleTap);
+    // Allow sliding between zones during hold
     canvas.addEventListener('pointermove', (e) => {
-      if (!pointerDown || gameState !== 'playing') return;
-      const x = getPointerX(e);
-      const diff = x - pointerStartX;
-      playerTargetX = Math.max(-laneWidth, Math.min(laneWidth, playerTargetX + diff * 3));
-      pointerStartX = x;
+      if (gameState !== 'playing') return;
+      if (e.buttons === 0) return;
+      playerTargetX = getLanFromPointer(e);
     });
-
-    canvas.addEventListener('pointerup', () => { pointerDown = false; });
-    canvas.addEventListener('pointercancel', () => { pointerDown = false; });
 
     // Keyboard controls
     document.addEventListener('keydown', (e) => {
