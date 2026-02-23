@@ -573,10 +573,10 @@
 
     function handleTap(e) {
       if (gameState === 'start') {
-        initAudio().then(() => {
-          gameState = 'playing';
-          document.getElementById('start-screen').classList.add('hidden');
-        });
+        // Start immediately — don't block on audio
+        gameState = 'playing';
+        document.getElementById('start-screen').classList.add('hidden');
+        initAudio().catch(() => {}); // audio is optional
       } else if (gameState === 'gameover') {
         restartGame();
       } else if (gameState === 'playing') {
@@ -598,10 +598,9 @@
     // Keyboard controls
     document.addEventListener('keydown', (e) => {
       if (gameState === 'start') {
-        initAudio().then(() => {
-          gameState = 'playing';
-          document.getElementById('start-screen').classList.add('hidden');
-        });
+        gameState = 'playing';
+        document.getElementById('start-screen').classList.add('hidden');
+        initAudio().catch(() => {});
         return;
       }
       if (gameState === 'gameover') {
