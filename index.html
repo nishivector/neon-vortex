@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>NEON VORTEX</title>
-  <script src="https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tone@15.1.22/dist/Tone.js"></script>
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.183.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.183.0/examples/jsm/"}}</script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
@@ -251,7 +251,6 @@
     import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
     import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
     import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-    import { ChromaticAberrationShader } from 'three/addons/shaders/ChromaticAberrationShader.js';
     import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 
     // Game constants
@@ -547,6 +546,16 @@
       const rect = canvas.getBoundingClientRect();
       return ((e.clientX - rect.left) / rect.width) * 2 - 1;
     }
+
+    // Start screen tap — overlay sits on top of canvas so needs its own listener
+    document.getElementById('start-screen').addEventListener('pointerdown', (e) => {
+      if (gameState === 'start') {
+        initAudio().then(() => {
+          gameState = 'playing';
+          document.getElementById('start-screen').classList.add('hidden');
+        });
+      }
+    });
 
     canvas.addEventListener('pointerdown', (e) => {
       pointerDown = true;
