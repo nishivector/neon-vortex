@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>NEON VORTEX</title>
+  <script src="https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.js"></script>
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.183.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.183.0/examples/jsm/"}}</script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      background: #000008;
+      overflow: hidden;
+      font-family: 'Orbitron', monospace;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    
+    #game-canvas {
+      display: block;
+      touch-action: none;
+    }
+    
+    #ui {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 100;
+    }
+    
+    #score-display {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      color: #00FFFF;
+      font-size: 14px;
+      text-shadow: 0 0 10px #00FFFF, 0 0 20px #00FFFF;
+      letter-spacing: 2px;
+    }
+    
+    #high-score {
+      color: #FF00FF;
+      text-shadow: 0 0 10px #FF00FF;
+      margin-top: 5px;
+    }
+    
+    #stage-display {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      color: #FF00FF;
+      font-size: 12px;
+      text-shadow: 0 0 10px #FF00FF;
+      text-align: right;
+    }
+    
+    #stage-name {
+      font-size: 16px;
+      font-weight: 700;
+      margin-top: 5px;
+    }
+    
+    #start-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 8, 0.7);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 200;
+      pointer-events: auto;
+    }
+    
+    #start-screen.hidden { display: none; }
+    
+    #title {
+      font-size: clamp(32px, 10vw, 72px);
+      font-weight: 900;
+      color: #00FFFF;
+      text-shadow: 0 0 20px #00FFFF, 0 0 40px #00FFFF, 0 0 60px #00FFFF;
+      letter-spacing: 8px;
+      animation: titlePulse 2s ease-in-out infinite;
+    }
+    
+    @keyframes titlePulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.02); opacity: 0.9; }
+    }
+    
+    #tagline {
+      font-size: clamp(12px, 3vw, 18px);
+      color: #FF00FF;
+      text-shadow: 0 0 10px #FF00FF;
+      margin-top: 20px;
+      letter-spacing: 3px;
+    }
+    
+    #tap-to-begin {
+      font-size: clamp(14px, 4vw, 24px);
+      color: #fff;
+      margin-top: 60px;
+      animation: blink 1s ease-in-out infinite;
+      letter-spacing: 4px;
+    }
+    
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    
+    #game-over {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 8, 0.9);
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 200;
+      pointer-events: auto;
+    }
+    
+    #game-over.visible { display: flex; }
+    
+    #game-over h2 {
+      font-size: clamp(24px, 8vw, 48px);
+      color: #FF00FF;
+      text-shadow: 0 0 20px #FF00FF;
+      margin-bottom: 30px;
+    }
+    
+    #final-score {
+      font-size: clamp(16px, 5vw, 32px);
+      color: #00FFFF;
+      text-shadow: 0 0 15px #00FFFF;
+    }
+    
+    #new-high {
+      font-size: 18px;
+      color: #FFFF00;
+      text-shadow: 0 0 15px #FFFF00;
+      margin-top: 15px;
+      display: none;
+    }
+    
+    #new-high.visible { display: block; }
+    
+    #credits {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.5);
+      margin-top: 40px;
+      text-align: center;
+      line-height: 1.8;
+    }
+    
+    #restart-hint {
+      font-size: 14px;
+      color: #fff;
+      margin-top: 30px;
+      animation: blink 1s ease-in-out infinite;
+    }
+    
+    #github-link {
+      position: fixed;
+      bottom: 10px;
+      right: 15px;
+      font-family: monospace;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.4);
+      z-index: 1000;
+      text-decoration: none;
+    }
+    
+    #damage-flash {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #FF0000;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 150;
+      transition: opacity 0.1s;
+    }
+    
+    #stage-flash {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #00FFFF;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 150;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+  
+  <div id="ui">
+    <div id="score-display">
+      <div>DISTANCE</div>
+      <div id="score">0</div>
+      <div id="high-score">BEST: 0</div>
+    </div>
+    <div id="stage-display">
+      <div>STAGE</div>
+      <div id="stage-num">1</div>
+      <div id="stage-name">AWAKENING</div>
+    </div>
+  </div>
+  
+  <div id="start-screen">
+    <div id="title">NEON VORTEX</div>
+    <div id="tagline">Race through a collapsing dimension before reality tears apart</div>
+    <div id="tap-to-begin">TAP TO BEGIN</div>
+  </div>
+  
+  <div id="game-over">
+    <h2>SIGNAL LOST</h2>
+    <div id="final-score">0</div>
+    <div id="new-high">★ NEW RECORD ★</div>
+    <div id="credits">A game by Nishi Vector<br>Three.js + Tone.js<br>2026</div>
+    <div id="restart-hint">TAP TO RESTART</div>
+  </div>
+  
+  <div id="damage-flash"></div>
+  <div id="stage-flash"></div>
+  
+  <a id="github-link" href="https://github.com/nishivector/neon-vortex" target="_blank">GitHub</a>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+    import { ChromaticAberrationShader } from 'three/addons/shaders/ChromaticAberrationShader.js';
+    import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+
+    // Game constants
+    const SCORE_KEY = 'neon-vortex-highscore';
+    const STAGES = [
+      { name: 'AWAKENING', bpm: 100, speed: 0.8, obstacleDensity: 0.015 },
+      { name: 'ACCELERANDO', bpm: 110, speed: 1.2, obstacleDensity: 0.025 },
+      { name: 'FRACTURE', bpm: 120, speed: 1.6, obstacleDensity: 0.035 },
+      { name: 'COLLAPSE', bpm: 130, speed: 2.2, obstacleDensity: 0.045 },
+      { name: 'SINGULARITY', bpm: 150, speed: 3.0, obstacleDensity: 0.06 }
+    ];
+
+    // Game state
+    let gameState = 'start'; // start, playing, gameover
+    let score = 0;
+    let highScore = parseInt(localStorage.getItem(SCORE_KEY) || '0');
+    let currentStage = 0;
+    let playerX = 0;
+    let playerTargetX = 0;
+    let speed = 0.8;
+    let distance = 0;
+    let obstacles = [];
+    let tunnelSegments = [];
+    let beatPhase = 0;
+    let lastBeatTime = 0;
+    let cameraShake = 0;
+    let chromaticIntensity = 0;
+
+    // Three.js setup
+    const canvas = document.getElementById('game-canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.toneMapping = THREE.ReinhardToneMapping;
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0x000008, 10, 80);
+
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200);
+    camera.position.set(0, 0, 5);
+
+    // Post-processing
+    const composer = new EffectComposer(renderer);
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      1.8, 0.3, 0.1
+    );
+    composer.addPass(bloomPass);
+
+    // Chromatic aberration pass (stage 5)
+    const chromaticShader = {
+      uniforms: {
+        tDiffuse: { value: null },
+        amount: { value: 0.0 }
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float amount;
+        varying vec2 vUv;
+        void main() {
+          vec2 offset = amount * (vUv - 0.5);
+          vec4 cr = texture2D(tDiffuse, vUv + offset);
+          vec4 cg = texture2D(tDiffuse, vUv);
+          vec4 cb = texture2D(tDiffuse, vUv - offset);
+          gl_FragColor = vec4(cr.r, cg.g, cb.b, 1.0);
+        }
+      `
+    };
+    const chromaticPass = new ShaderPass(chromaticShader);
+    composer.addPass(chromaticPass);
+
+    // Player ship - a sleek angular form
+    const playerGroup = new THREE.Group();
+    
+    // Main body - angular wedge
+    const bodyGeom = new THREE.ConeGeometry(0.3, 1.2, 4);
+    bodyGeom.rotateX(Math.PI / 2);
+    const bodyMat = new THREE.MeshBasicMaterial({ color: 0x00FFFF });
+    const body = new THREE.Mesh(bodyGeom, bodyMat);
+    playerGroup.add(body);
+
+    // Engine glow
+    const engineGeom = new THREE.SphereGeometry(0.15, 8, 8);
+    const engineMat = new THREE.MeshBasicMaterial({ color: 0xFF00FF });
+    const engine = new THREE.Mesh(engineGeom, engineMat);
+    engine.position.z = 0.5;
+    playerGroup.add(engine);
+
+    // Side fins
+    const finGeom = new THREE.BoxGeometry(0.6, 0.05, 0.3);
+    const finMat = new THREE.MeshBasicMaterial({ color: 0x00FFFF });
+    const fin1 = new THREE.Mesh(finGeom, finMat);
+    fin1.position.y = 0.2;
+    playerGroup.add(fin1);
+    const fin2 = new THREE.Mesh(finGeom, finMat);
+    fin2.position.y = -0.2;
+    playerGroup.add(fin2);
+
+    playerGroup.position.z = 3;
+    scene.add(playerGroup);
+
+    // Tunnel segments
+    const tunnelLength = 100;
+    const segmentLength = 10;
+    for (let i = 0; i < tunnelLength; i++) {
+      createTunnelSegment(i * segmentLength);
+    }
+
+    function createTunnelSegment(z) {
+      const geometry = new THREE.CylinderGeometry(5, 5, segmentLength, 16, 1, true);
+      geometry.rotateX(Math.PI / 2);
+      
+      // Create gradient texture for tunnel
+      const canvas = document.createElement('canvas');
+      canvas.width = 64;
+      canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+      const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gradient.addColorStop(0, '#000020');
+      gradient.addColorStop(0.5, '#000010');
+      gradient.addColorStop(1, '#000008');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 64, 64);
+      
+      // Add grid lines
+      ctx.strokeStyle = 'rgba(0, 255, 255, 0.3)';
+      ctx.lineWidth = 1;
+      for (let j = 0; j < 8; j++) {
+        ctx.beginPath();
+        ctx.moveTo(j * 8, 0);
+        ctx.lineTo(j * 8, 64);
+        ctx.stroke();
+      }
+      for (let j = 0; j < 8; j++) {
+        ctx.beginPath();
+        ctx.moveTo(0, j * 8);
+        ctx.lineTo(64, j * 8);
+        ctx.stroke();
+      }
+      
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(4, 1);
+      
+      const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        side: THREE.BackSide,
+        transparent: true,
+        opacity: 0.8
+      });
+      
+      const segment = new THREE.Mesh(geometry, material);
+      segment.position.z = -z;
+      scene.add(segment);
+      tunnelSegments.push(segment);
+    }
+
+    // Obstacle pool
+    const obstaclePool = [];
+    function createObstacle() {
+      const geometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+      const material = new THREE.MeshBasicMaterial({ color: 0xFF00FF });
+      const obstacle = new THREE.Mesh(geometry, material);
+      
+      // Add edge glow
+      const edges = new THREE.EdgesGeometry(geometry);
+      const lineMat = new THREE.LineBasicMaterial({ color: 0xFF00FF });
+      const wireframe = new THREE.LineSegments(edges, lineMat);
+      obstacle.add(wireframe);
+      
+      return obstacle;
+    }
+
+    for (let i = 0; i < 50; i++) {
+      const obs = createObstacle();
+      obs.visible = false;
+      scene.add(obs);
+      obstaclePool.push(obs);
+    }
+
+    // Particle system for speed effect
+    const particleCount = 200;
+    const particleGeom = new THREE.BufferGeometry();
+    const particlePositions = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount; i++) {
+      particlePositions[i * 3] = (Math.random() - 0.5) * 10;
+      particlePositions[i * 3 + 1] = (Math.random() - 0.5) * 10;
+      particlePositions[i * 3 + 2] = -Math.random() * 50;
+    }
+    particleGeom.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+    const particleMat = new THREE.PointsMaterial({ color: 0x00FFFF, size: 0.1 });
+    const particles = new THREE.Points(particleGeom, particleMat);
+    scene.add(particles);
+
+    // Audio setup
+    let bassSynth, leadSynth, drumSynth;
+    let bassPart, leadPart;
+    let audioInitialized = false;
+
+    async function initAudio() {
+      if (audioInitialized) return;
+      
+      await Tone.start();
+      
+      // Bass synth - the heartbeat
+      bassSynth = new Tone.MonoSynth({
+        oscillator: { type: 'sawtooth' },
+        envelope: { attack: 0.01, decay: 0.3, sustain: 0.1, release: 0.1 },
+        filterEnvelope: { attack: 0.01, decay: 0.2, sustain: 0.5, release: 0.2, baseFrequency: 100, octaves: 3 }
+      }).toDestination();
+      bassSynth.volume.value = -10;
+
+      // Lead synth - the scream
+      leadSynth = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: 'square' },
+        envelope: { attack: 0.05, decay: 0.2, sustain: 0.3, release: 0.2 }
+      }).toDestination();
+      leadSynth.volume.value = -15;
+
+      // Noise for hits
+      drumSynth = new Tone.NoiseSynth({
+        noise: { type: 'white' },
+        envelope: { attack: 0.001, decay: 0.1, sustain: 0 }
+      }).toDestination();
+      drumSynth.volume.value = -5;
+
+      // Bass pattern (plays on beat)
+      const bassNotes = ['C1', 'C1', 'C1', 'C1', 'G1', 'G1', 'C1', 'C1'];
+      bassPart = new Tone.Sequence((time, note) => {
+        bassSynth.triggerAttackRelease(note, '8n', time);
+      }, bassNotes, '4n');
+      bassPart.start(0);
+
+      // Lead melody (stage 3+)
+      const leadNotes = ['C4', 'E4', 'G4', 'C5', 'G4', 'E4', 'C4', 'G3'];
+      leadPart = new Tone.Sequence((time, note) => {
+        if (currentStage >= 2) {
+          leadSynth.triggerAttackRelease(note, '8n', time);
+        }
+      }, leadNotes, '8n');
+      leadPart.start(0);
+
+      Tone.Transport.bpm.value = STAGES[0].bpm;
+      Tone.Transport.start();
+      
+      audioInitialized = true;
+    }
+
+    function playHitSound() {
+      if (!audioInitialized) return;
+      drumSynth.triggerAttackRelease('16n');
+    }
+
+    function playDodgeSound() {
+      if (!audioInitialized) return;
+      leadSynth.triggerAttackRelease('C6', '32n');
+    }
+
+    function updateBPM(stage) {
+      if (!audioInitialized) return;
+      Tone.Transport.bpm.value = STAGES[stage].bpm;
+    }
+
+    function warpMusicDeath() {
+      if (!audioInitialized) return;
+      // Pitch down and slow
+      const interval = setInterval(() => {
+        Tone.Transport.bpm.value *= 0.95;
+        if (Tone.Transport.bpm.value < 30) {
+          clearInterval(interval);
+          Tone.Transport.stop();
+        }
+      }, 100);
+    }
+
+    // Input handling
+    let pointerDown = false;
+    let pointerStartX = 0;
+    let laneWidth = 3;
+
+    function getPointerX(e) {
+      const rect = canvas.getBoundingClientRect();
+      return ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    }
+
+    canvas.addEventListener('pointerdown', (e) => {
+      pointerDown = true;
+      pointerStartX = getPointerX(e);
+      
+      if (gameState === 'start') {
+        initAudio().then(() => {
+          gameState = 'playing';
+          document.getElementById('start-screen').classList.add('hidden');
+        });
+      } else if (gameState === 'gameover') {
+        restartGame();
+      }
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (!pointerDown || gameState !== 'playing') return;
+      const x = getPointerX(e);
+      const diff = x - pointerStartX;
+      playerTargetX = Math.max(-laneWidth, Math.min(laneWidth, playerTargetX + diff * 3));
+      pointerStartX = x;
+    });
+
+    canvas.addEventListener('pointerup', () => { pointerDown = false; });
+    canvas.addEventListener('pointercancel', () => { pointerDown = false; });
+
+    // Keyboard controls
+    document.addEventListener('keydown', (e) => {
+      if (gameState === 'start') {
+        initAudio().then(() => {
+          gameState = 'playing';
+          document.getElementById('start-screen').classList.add('hidden');
+        });
+        return;
+      }
+      if (gameState === 'gameover') {
+        restartGame();
+        return;
+      }
+      if (e.key === 'ArrowLeft') playerTargetX = Math.max(-laneWidth, playerTargetX - 1.5);
+      if (e.key === 'ArrowRight') playerTargetX = Math.min(laneWidth, playerTargetX + 1.5);
+    });
+
+    function restartGame() {
+      gameState = 'playing';
+      score = 0;
+      distance = 0;
+      currentStage = 0;
+      playerX = 0;
+      playerTargetX = 0;
+      speed = STAGES[0].speed;
+      cameraShake = 0;
+      chromaticIntensity = 0;
+      
+      // Reset obstacles
+      obstacles.forEach(o => {
+        o.mesh.visible = false;
+      });
+      obstacles = [];
+      
+      // Update UI
+      document.getElementById('game-over').classList.remove('visible');
+      updateScore();
+      updateStage();
+      
+      // Restart music
+      if (audioInitialized) {
+        Tone.Transport.start();
+        Tone.Transport.bpm.value = STAGES[0].bpm;
+      }
+    }
+
+    function updateScore() {
+      document.getElementById('score').textContent = Math.floor(score);
+      document.getElementById('high-score').textContent = `BEST: ${highScore}`;
+    }
+
+    function updateStage() {
+      document.getElementById('stage-num').textContent = currentStage + 1;
+      document.getElementById('stage-name').textContent = STAGES[currentStage].name;
+    }
+
+    function spawnObstacle() {
+      const stage = STAGES[currentStage];
+      if (Math.random() > stage.obstacleDensity) return;
+      
+      // Find inactive obstacle
+      const obstacle = obstaclePool.find(o => !o.visible);
+      if (!obstacle) return;
+      
+      obstacle.visible = true;
+      const lane = Math.floor(Math.random() * 3) - 1;
+      obstacle.position.set(lane * laneWidth, 0, -60);
+      
+      // Stage 3+ has vertical obstacles too
+      if (currentStage >= 2 && Math.random() > 0.7) {
+        obstacle.scale.y = 2;
+        obstacle.position.y = (Math.random() - 0.5) * 2;
+      } else {
+        obstacle.scale.y = 1;
+        obstacle.position.y = 0;
+      }
+      
+      obstacles.push({ mesh: obstacle, passed: false });
+    }
+
+    function checkCollisions() {
+      const playerBox = new THREE.Box3().setFromObject(playerGroup);
+      playerBox.min.add(playerGroup.position);
+      playerBox.max.add(playerGroup.position);
+      playerBox.min.x += playerX - 0.3;
+      playerBox.max.x += playerX + 0.3;
+      playerBox.min.z = playerGroup.position.z - 0.6;
+      playerBox.max.z = playerGroup.position.z + 0.6;
+      
+      for (const obs of obstacles) {
+        if (!obs.mesh.visible) continue;
+        
+        const obsBox = new THREE.Box3().setFromObject(obs.mesh);
+        
+        if (playerBox.intersectsBox(obsBox)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function gameOver() {
+      gameState = 'gameover';
+      
+      // Flash damage
+      const flash = document.getElementById('damage-flash');
+      flash.style.opacity = '0.8';
+      setTimeout(() => { flash.style.opacity = '0'; }, 200);
+      
+      // Camera shake
+      cameraShake = 1;
+      
+      // Warp music
+      warpMusicDeath();
+      
+      // Check high score
+      const isNewHigh = score > highScore;
+      if (isNewHigh) {
+        highScore = Math.floor(score);
+        localStorage.setItem(SCORE_KEY, highScore);
+      }
+      
+      // Update game over screen
+      document.getElementById('final-score').textContent = Math.floor(score);
+      document.getElementById('new-high').classList.toggle('visible', isNewHigh);
+      
+      setTimeout(() => {
+        document.getElementById('game-over').classList.add('visible');
+      }, 1500);
+    }
+
+    function advanceStage() {
+      if (currentStage >= 4) return;
+      
+      currentStage++;
+      speed = STAGES[currentStage].speed;
+      updateBPM(currentStage);
+      updateStage();
+      
+      // Stage flash
+      const flash = document.getElementById('stage-flash');
+      flash.style.opacity = '0.5';
+      setTimeout(() => { flash.style.opacity = '0'; }, 300);
+    }
+
+    // Animation loop
+    let lastTime = 0;
+    function animate(time) {
+      requestAnimationFrame(animate);
+      
+      const delta = Math.min((time - lastTime) / 1000, 0.1);
+      lastTime = time;
+      
+      if (gameState === 'playing') {
+        // Update distance and score
+        distance += speed * delta * 10;
+        score = distance;
+        updateScore();
+        
+        // Stage progression based on distance
+        const expectedStage = Math.min(4, Math.floor(distance / 500));
+        if (expectedStage > currentStage) {
+          advanceStage();
+        }
+        
+        // Smooth player movement
+        playerX += (playerTargetX - playerX) * 10 * delta;
+        playerGroup.position.x = playerX;
+        
+        // Player tilt based on movement
+        playerGroup.rotation.z = (playerTargetX - playerX) * 0.5;
+        
+        // Engine pulse
+        const pulse = 0.15 + Math.sin(time * 0.01) * 0.05;
+        engine.scale.setScalar(pulse);
+        
+        // Move tunnel
+        for (const segment of tunnelSegments) {
+          segment.position.z += speed * delta * 20;
+          if (segment.position.z > 10) {
+            segment.position.z -= tunnelLength * segmentLength;
+          }
+        }
+        
+        // Move particles
+        const positions = particles.geometry.attributes.position.array;
+        for (let i = 0; i < particleCount; i++) {
+          positions[i * 3 + 2] += speed * delta * 30;
+          if (positions[i * 3 + 2] > 5) {
+            positions[i * 3 + 2] = -50;
+            positions[i * 3] = (Math.random() - 0.5) * 10;
+            positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
+          }
+        }
+        particles.geometry.attributes.position.needsUpdate = true;
+        
+        // Spawn obstacles
+        spawnObstacle();
+        
+        // Move obstacles
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+          const obs = obstacles[i];
+          obs.mesh.position.z += speed * delta * 20;
+          
+          // Check if passed
+          if (!obs.passed && obs.mesh.position.z > playerGroup.position.z) {
+            obs.passed = true;
+            playDodgeSound();
+          }
+          
+          // Remove if behind camera
+          if (obs.mesh.position.z > 10) {
+            obs.mesh.visible = false;
+            obstacles.splice(i, 1);
+          }
+        }
+        
+        // Check collisions
+        if (checkCollisions()) {
+          playHitSound();
+          gameOver();
+        }
+        
+        // Beat sync
+        const beatInterval = 60 / Tone.Transport.bpm.value;
+        beatPhase = (time / 1000) % beatInterval / beatInterval;
+        
+        // Tunnel pulse with beat
+        for (const segment of tunnelSegments) {
+          segment.material.opacity = 0.6 + beatPhase * 0.3;
+        }
+        
+        // Camera shake decay
+        cameraShake *= 0.9;
+        
+        // Chromatic aberration for stage 5
+        chromaticIntensity = currentStage >= 4 ? 0.01 + beatPhase * 0.01 : 0;
+      }
+      
+      // Apply camera shake
+      camera.position.x = (Math.random() - 0.5) * cameraShake * 0.3;
+      camera.position.y = (Math.random() - 0.5) * cameraShake * 0.2;
+      
+      // Update chromatic aberration
+      chromaticPass.uniforms.amount.value = chromaticIntensity;
+      
+      // Update bloom based on stage
+      bloomPass.strength = 1.5 + currentStage * 0.3;
+      
+      // Render
+      composer.render();
+    }
+
+    // Handle resize
+    function onResize() {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      
+      camera.aspect = width / height;
+      camera.fov = width < height ? 90 : 75; // Wider FOV for portrait
+      camera.updateProjectionMatrix();
+      
+      renderer.setSize(width, height);
+      composer.setSize(width, height);
+      bloomPass.resolution.set(width, height);
+    }
+    window.addEventListener('resize', onResize);
+    onResize();
+
+    // Initialize UI
+    document.getElementById('high-score').textContent = `BEST: ${highScore}`;
+
+    // Start animation
+    animate(0);
+  </script>
+</body>
+</html>
