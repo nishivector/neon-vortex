@@ -231,13 +231,33 @@
       pointer-events: none;
       z-index: 150;
     }
+
+    #steer-left, #steer-right {
+      position: fixed;
+      top: 0;
+      width: 50%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 90;
+      opacity: 0;
+      transition: opacity 0.1s;
+    }
+    #steer-left {
+      left: 0;
+      background: linear-gradient(to right, rgba(0,255,255,0.08), transparent);
+    }
+    #steer-right {
+      right: 0;
+      background: linear-gradient(to left, rgba(0,255,255,0.08), transparent);
+    }
+    #steer-left.active, #steer-right.active { opacity: 1; }
   </style>
 </head>
 <body>
   <canvas id="game-canvas"></canvas>
   
   <div id="ui">
-    <div id="controls-hint">◀ TAP LEFT &nbsp;|&nbsp; TAP RIGHT ▶</div>
+    <div id="controls-hint">HOLD LEFT ◀ &nbsp;|&nbsp; ▶ HOLD RIGHT</div>
     <div id="score-display">
       <div>DISTANCE</div>
       <div id="score">0</div>
@@ -264,6 +284,8 @@
     <div id="restart-hint">TAP TO RESTART</div>
   </div>
   
+  <div id="steer-left"></div>
+  <div id="steer-right"></div>
   <div id="damage-flash"></div>
   <div id="stage-flash"></div>
   
@@ -359,27 +381,27 @@
     const playerGroup = new THREE.Group();
     
     // Main body - angular wedge
-    const bodyGeom = new THREE.ConeGeometry(0.3, 1.2, 4);
+    const bodyGeom = new THREE.ConeGeometry(0.5, 2.0, 4);
     bodyGeom.rotateX(Math.PI / 2);
     const bodyMat = new THREE.MeshBasicMaterial({ color: 0x00FFFF });
     const body = new THREE.Mesh(bodyGeom, bodyMat);
     playerGroup.add(body);
 
     // Engine glow
-    const engineGeom = new THREE.SphereGeometry(0.15, 8, 8);
+    const engineGeom = new THREE.SphereGeometry(0.3, 8, 8);
     const engineMat = new THREE.MeshBasicMaterial({ color: 0xFF00FF });
     const engine = new THREE.Mesh(engineGeom, engineMat);
-    engine.position.z = 0.5;
+    engine.position.z = 0.8;
     playerGroup.add(engine);
 
     // Side fins
-    const finGeom = new THREE.BoxGeometry(0.6, 0.05, 0.3);
+    const finGeom = new THREE.BoxGeometry(1.2, 0.08, 0.5);
     const finMat = new THREE.MeshBasicMaterial({ color: 0x00FFFF });
     const fin1 = new THREE.Mesh(finGeom, finMat);
-    fin1.position.y = 0.2;
+    fin1.position.y = 0.35;
     playerGroup.add(fin1);
     const fin2 = new THREE.Mesh(finGeom, finMat);
-    fin2.position.y = -0.2;
+    fin2.position.y = -0.35;
     playerGroup.add(fin2);
 
     playerGroup.position.z = 3;
@@ -560,40 +582,39 @@
       }, 100);
     }
 
-    // Input handling — tap zones: left third / center / right third of screen
-    let laneWidth = 3;
+    // Input handling — hold left half to steer left, hold right half to steer right
+    let laneWidth = 4;
+    let steerDir = 0; // -1 left, 0 none, +1 right
 
-    function getLanFromPointer(e) {
+    function getSideFromPointer(e) {
       const rect = canvas.getBoundingClientRect();
-      const nx = (e.clientX - rect.left) / rect.width; // 0..1
-      if (nx < 0.33) return -laneWidth;
-      if (nx > 0.67) return laneWidth;
-      return 0;
+      const nx = (e.clientX - rect.left) / rect.width;
+      return nx < 0.5 ? -1 : 1;
     }
 
-    function handleTap(e) {
+    function handlePointerDown(e) {
       if (gameState === 'start') {
-        // Start immediately — don't block on audio
         gameState = 'playing';
         document.getElementById('start-screen').classList.add('hidden');
-        initAudio().catch(() => {}); // audio is optional
-      } else if (gameState === 'gameover') {
-        restartGame();
-      } else if (gameState === 'playing') {
-        playerTargetX = getLanFromPointer(e);
+        initAudio().catch(() => {});
+        return;
       }
+      if (gameState === 'gameover') { restartGame(); return; }
+      if (gameState === 'playing') steerDir = getSideFromPointer(e);
     }
 
-    // Start screen overlay needs its own listener (sits on top of canvas)
-    document.getElementById('start-screen').addEventListener('pointerdown', handleTap);
+    function handlePointerMove(e) {
+      if (gameState !== 'playing' || e.buttons === 0) return;
+      steerDir = getSideFromPointer(e);
+    }
 
-    canvas.addEventListener('pointerdown', handleTap);
-    // Allow sliding between zones during hold
-    canvas.addEventListener('pointermove', (e) => {
-      if (gameState !== 'playing') return;
-      if (e.buttons === 0) return;
-      playerTargetX = getLanFromPointer(e);
-    });
+    function handlePointerUp() { steerDir = 0; }
+
+    document.getElementById('start-screen').addEventListener('pointerdown', handlePointerDown);
+    canvas.addEventListener('pointerdown', handlePointerDown);
+    canvas.addEventListener('pointermove', handlePointerMove);
+    canvas.addEventListener('pointerup', handlePointerUp);
+    canvas.addEventListener('pointercancel', handlePointerUp);
 
     // Keyboard controls
     document.addEventListener('keydown', (e) => {
@@ -603,12 +624,12 @@
         initAudio().catch(() => {});
         return;
       }
-      if (gameState === 'gameover') {
-        restartGame();
-        return;
-      }
-      if (e.key === 'ArrowLeft') playerTargetX = Math.max(-laneWidth, playerTargetX - 1.5);
-      if (e.key === 'ArrowRight') playerTargetX = Math.min(laneWidth, playerTargetX + 1.5);
+      if (gameState === 'gameover') { restartGame(); return; }
+      if (e.key === 'ArrowLeft') steerDir = -1;
+      if (e.key === 'ArrowRight') steerDir = 1;
+    });
+    document.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') steerDir = 0;
     });
 
     function restartGame() {
@@ -617,7 +638,7 @@
       distance = 0;
       currentStage = 0;
       playerX = 0;
-      playerTargetX = 0;
+      steerDir = 0;
       speed = STAGES[0].speed;
       cameraShake = 0;
       chromaticIntensity = 0;
@@ -651,6 +672,7 @@
     }
 
     function spawnObstacle() {
+      if (distance < 150) return; // grace period — learn the controls first
       const stage = STAGES[currentStage];
       if (Math.random() > stage.obstacleDensity) return;
       
@@ -759,12 +781,16 @@
           advanceStage();
         }
         
-        // Smooth player movement
-        playerX += (playerTargetX - playerX) * 10 * delta;
+        // Continuous steering: hold left/right side to steer
+        const steerSpeed = 8;
+        if (steerDir !== 0) {
+          playerX += steerDir * steerSpeed * delta;
+          playerX = Math.max(-laneWidth, Math.min(laneWidth, playerX));
+        }
         playerGroup.position.x = playerX;
-        
-        // Player tilt based on movement
-        playerGroup.rotation.z = (playerTargetX - playerX) * 0.5;
+
+        // Player tilt while steering
+        playerGroup.rotation.z = -steerDir * 0.4;
         
         // Engine pulse
         const pulse = 0.15 + Math.sin(time * 0.01) * 0.05;
@@ -833,6 +859,10 @@
         chromaticIntensity = currentStage >= 4 ? 0.01 + beatPhase * 0.01 : 0;
       }
       
+      // Steer zone visual feedback
+      document.getElementById('steer-left').classList.toggle('active', steerDir === -1 && gameState === 'playing');
+      document.getElementById('steer-right').classList.toggle('active', steerDir === 1 && gameState === 'playing');
+
       // Apply camera shake
       camera.position.x = (Math.random() - 0.5) * cameraShake * 0.3;
       camera.position.y = (Math.random() - 0.5) * cameraShake * 0.2;
